@@ -20,7 +20,9 @@ class Database():
                     first_name TEXT,
                     last_name TEXT,
                     username TEXT,
-                    password TEXT
+                    password TEXT,
+                    thread_id INTEGER,
+                    thread_type TEXT
                     );
                     
                     CREATE TABLE IF NOT EXISTS Routes(
@@ -30,7 +32,10 @@ class Database():
                     start_location TEXT,
                     end_location TEXT,
                     username TEXT
-                    );""")
+                    );
+                    
+                    CREATE TABLE IF NOT EXISTS Times(
+                    time INTEGER UNIQUE);""")
 
     def login(self, username, password):
         cmd = "SELECT account_id FROM Accounts WHERE username = \'{}\' AND password = \'{}\'".format(username, password)
@@ -48,13 +53,14 @@ class Database():
         else:
             return False
 
-    def create_account(self, first, last, username, password):
+    def create_account(self, first, last, username, password, thread_id, thread_type):
 
-        cmd = """INSERT INTO Accounts(first_name, last_name, username, password) VALUES(?,?,?,?)"""
+        cmd = """INSERT INTO Accounts(first_name, last_name, username, password, thread_id, thread_type) 
+                VALUES(?,?,?,?,?,?)"""
 
         try:
             self.thread_lock.acquire(True)
-            self.cur.execute(cmd, (first, last, username, password))
+            self.cur.execute(cmd, (first, last, username, password, thread_id, thread_type))
             self.conn.commit()
         finally:
             self.thread_lock.release()
@@ -86,9 +92,34 @@ class Database():
             self.thread_lock.acquire(True)
             self.cur.execute(cmd, (name, time, start, end, username))
             self.conn.commit()
+            self.cur.execute("INSERT INTO Times(time) VALUES(?)", (time,))
+            self.conn.commit()
         finally:
             self.thread_lock.release()
 
+    def get_routes_with_time(self, time):
+        cmd = """SELECT * from Routes WHERE departure_time={}""".format(time)
+        user_info_list = []
+        routes = []
+        try:
+            self.thread_lock.acquire(True)
+            self.cur.execute(cmd)
+            routes = self.cur.fetchall()
+            username_list = []
+            for name in routes:
+                if name[5] not in username_list:
+                    username_list.append(name[5])
+
+            for name in username_list:
+                self.cur.execute("""SELECT first_name, username, thread_id, thread_type FROM Accounts
+                                WHERE username = \'{}\'""".format(name))
+                info = self.cur.fetchone()
+                user_info_list.append(info)
+
+        finally:
+            self.thread_lock.release()
+
+        return (routes, user_info_list)
 
     def route_info(self):
         origin = "1334+Spectrum+Irvine+CA"

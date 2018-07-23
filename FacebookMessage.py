@@ -1,22 +1,25 @@
 from fbchat import log, Client
 from fbchat.models import *
 import threading
-import time
 import queue
 import Database
+import requests
+
 
 # Subclass fbchat.Client and override required methods
 class EchoBot(Client):
-
+    KEY = "AIzaSyB_R-OTY2BwfqtjqWQ3eBPRfoTb8WywqFU"
+    URL = "https://maps.googleapis.com/maps/api/directions/json"
     # key:  int(thread_id)
     # value: list[queue]
     conversations = {}
     database = Database.Database(threading.Lock())
-    all_times = []
+
     def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
         self.markAsDelivered(thread_id, message_object.uid)
         self.markAsRead(thread_id)
-        print("author_id: {}, thread_id: {}, thread_type: {}, UID: {}".format(author_id, thread_id, thread_type, self.uid))
+        print("author_id: {}, thread_id: {}, thread_type: {}, UID: {}".format(author_id, thread_id, thread_type,
+                                                                              self.uid))
         log.info("{} from {} in {}".format(message_object, thread_id, thread_type.name))
         print(message_object.text)
         # If you're not the author, echo
@@ -78,7 +81,8 @@ class EchoBot(Client):
 
                 username = self.check_username(username, thread_id, thread_type)
 
-                self.database.create_account(first, last, username, password)
+                # NEED TO FIX STORING THIS SAYS PARAm 5 errors? does that mean 0-5 or 1-5? can't store int?
+                self.database.create_account(first, last, username, password, int(thread_id), str(thread_type))
                 self.send(Message(text="account has been created"), thread_id=thread_id, thread_type=thread_type)
 
             else:
@@ -106,7 +110,7 @@ class EchoBot(Client):
             clean_all_user.append(user[0])
         while username in clean_all_user:
             self.send(Message(text="Username: \"{}\" is already taken. Please choose a new username.".format(username)),
-                    thread_id=thread_id, thread_type=thread_type)
+                      thread_id=thread_id, thread_type=thread_type)
             self.send(Message(text="Enter in new username: "), thread_id=thread_id, thread_type=thread_type)
             username = self.conversations[thread_id].get()
 
@@ -121,7 +125,8 @@ class EchoBot(Client):
         self.send(Message(text=msg), thread_id=thread_id, thread_type=thread_type)
 
     def send_goodbye(self, thread_id, thread_type):
-        self.send(Message(text="Thank you for using the Molly Report! Goodbye"), thread_id=thread_id, thread_type=thread_type)
+        self.send(Message(text="Thank you for using the Molly Report! Goodbye"), thread_id=thread_id,
+                  thread_type=thread_type)
 
     def route_main_page(self, thread_id, thread_type, username):
         self.send_route_menu(thread_id, thread_type)
@@ -159,7 +164,6 @@ class EchoBot(Client):
                 self.conversations.pop(thread_id)
                 return
 
-
     def view_routes(self, thread_id, thread_type, username):
         # this shows the whoel database, need to prettify and make it more useful to the user
         self.send(Message(text="--- Viewing all your routes ---"), thread_id=thread_id, thread_type=thread_type)
@@ -170,7 +174,8 @@ class EchoBot(Client):
         else:
             for route in data:
                 print(route)
-                msg = "Route Name: {}\nStart: {}\nEnd: {}\nDeparture Time: {}".format(route[1], route[3], route[4], route[2])
+                msg = "Route Name: {}\nStart: {}\nEnd: {}\nDeparture Time: {}".format(route[1], route[3], route[4],
+                                                                                      route[2])
                 self.send(Message(text=msg.replace('+', '  ')), thread_id=thread_id, thread_type=thread_type)
 
     def create_route(self, thread_id, thread_type, username):
@@ -195,33 +200,79 @@ class EchoBot(Client):
         start = address_line + '+' + city + '+' + state + '+' + zip
 
         self.send(Message(text="Enter in your ending location:"), thread_id=thread_id, thread_type=thread_type)
-        self.send(Message(text="Enter in Address line (ex. 123 Main Street): "), thread_id=thread_id, thread_type=thread_type)
+        self.send(Message(text="Enter in Address line (ex. 123 Main Street): "), thread_id=thread_id,
+                  thread_type=thread_type)
         address_line = self.conversations[thread_id].get()
 
         self.send(Message(text="Enter in City (ex. Los Angelos): "), thread_id=thread_id, thread_type=thread_type)
         city = self.conversations[thread_id].get()
 
         self.send(Message(text="Enter in State abbreviation (ex. CA): "), thread_id=thread_id, thread_type=thread_type)
-        state= self.conversations[thread_id].get()
+        state = self.conversations[thread_id].get()
 
         self.send(Message(text="Enter in zip code (ex. 90210): "), thread_id=thread_id, thread_type=thread_type)
         zip = self.conversations[thread_id].get()
 
         end = address_line + '+' + city + '+' + state + '+' + zip
 
-        self.send(Message(text="Enter departure time in military time in PST (ex. 4:30 PM => 1630 or 6:00 AM => 0600): "),
-                  thread_id=thread_id, thread_type=thread_type)
+        self.send(
+            Message(text="Enter departure time in military time in PST (ex. 4:30 PM => 1630 or 6:00 AM => 600): "),
+            thread_id=thread_id, thread_type=thread_type)
         time = self.conversations[thread_id].get()
 
         self.database.create_route(start, end, time, name, username)
         self.send(Message(text="Your route has been created."), thread_id=thread_id, thread_type=thread_type)
 
-        self.oraganize_and_sort_times(time)
 
     def delete_route(self, thread_id, thread_type, username):
         self.send(Message(text="Not available yet."), thread_id=thread_id, thread_type=thread_type)
 
-    def oraganize_and_sort_times(self, time):
-        if time not in self.all_times:
-            self.all_times.append(time)
-            self.all_times.sort()
+    def send_route_info(self, time):
+        routes, user_info_list = self.database.get_routes_with_time(time)
+        for route in routes:
+            query = {"key": self.KEY, "destination": route[4], "origin": route[3], "avoid": "tolls",
+                     "departure_time": "now", "traffic_model": "best_guess"}
+            r = requests.get(self.URL, params=query)
+            info = r.json()
+
+            # pp = pprint.PrettyPrinter(indent = 4)
+            # pp.pprint(info)
+            print("URL: " + r.url)
+
+            if info["status"] == "OK":
+                print("Distance: " + info["routes"][0]["legs"][0]["distance"]["text"])
+                print("Duration in Traffic: " + info["routes"][0]["legs"][0]["duration_in_traffic"]["text"])
+            else:
+                print("status != OK")
+
+            print()
+
+            route = ''
+            for step in info["routes"][0]["legs"][0]["steps"]:
+                inst = step["html_instructions"]
+                present = True
+                while present:
+                    start = inst.find('<')
+                    if start >= 0:
+                        end = inst.find('>')
+                        inst = inst[:start].strip() + ' ' + inst[end + 1:].strip()
+                        print(inst)
+                    else:
+                        present = False
+                route += inst + '\n'
+
+            msg = "Distance: " + info["routes"][0]["legs"][0]["distance"]["text"] + '\n' + "Duration in Traffic: " + \
+                  info["routes"][0]["legs"][0]["duration_in_traffic"]["text"] + '\n' + route
+
+            name = ''
+            thread_id = 0
+            thread_type = ''
+            for i in user_info_list:
+                if route[5] == i[1]:
+                    name = i[0]
+                    thread_id = i[2]
+                    thread_type = i[3]
+                    break
+
+            msg = "Hi " + name + "\nYour \'" + route[1] + "\' report for today is:\n" + msg
+            self.send(Message(text=msg), thread_id=thread_id, thread_type=ThreadType.USER)

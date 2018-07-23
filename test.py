@@ -1,28 +1,21 @@
-# import sqlite3
-#
-# conn = sqlite3.connect("everything_db.sqlite")
-# cur = conn.cursor()
-#
-# username = "Test"
-# password = "Admin"
-# cmd = """SELECT account_id FROM Accounts WHERE username = \'?\' AND password = \'?\'"""
-# params = (username, password)
-# try:
-#
-#
-#     cur.execute(cmd)
-#     data = cur.fetchone()
-# finally:
-#     pass
-#
-# if data != None:
-#     print("found")
-# else:
-#     print("not found")
-
 import time
+import sqlite3
+import threading
+conn = sqlite3.connect("everything_db.sqlite", check_same_thread=False)
+cur = conn.cursor()
+thread_lock = threading.Lock()
+info = ''
+try:
+    thread_lock.acquire(True)
+    data = time.localtime()
+    current_time = 2326
+    cur.execute("SELECT time FROM Times WHERE time={}".format(current_time))
+    info = cur.fetchone()
+    cur.execute("SELECT * from Times")
+    data = cur.fetchall()
+    print(data)
+finally:
+    thread_lock.release()
 
-print("time.localtime(): " + str(time.localtime()))
-print("time.clock(): " + str(time.clock()))
-print("time.get_clock_info(clock): " + str(time.get_clock_info("clock")))
-print("time.get_clock_info(time): " + str(time.get_clock_info("time")))
+if info != None:
+    print("it got something")
