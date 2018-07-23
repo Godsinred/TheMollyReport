@@ -21,14 +21,23 @@ class Database():
                     last_name TEXT,
                     username TEXT,
                     password TEXT
+                    );
+                    
+                    CREATE TABLE IF NOT EXISTS Routes(
+                    routine_number INTEGER PRIMARY KEY,
+                    routine_name TEXT,
+                    departure_time INTEGER,
+                    start_location TEXT,
+                    end_location TEXT,
+                    username TEXT
                     );""")
 
     def login(self, username, password):
-        cmd = """SELECT account_id FROM Accounts WHERE username = ? AND password = ?"""
+        cmd = "SELECT account_id FROM Accounts WHERE username = \'{}\' AND password = \'{}\'".format(username, password)
         data = ''
         try:
             self.thread_lock.acquire(True)
-            self.cur.execute(cmd, (username, password))
+            self.cur.execute(cmd)
             data = self.cur.fetchone()
         finally:
             self.thread_lock.release()
@@ -50,23 +59,36 @@ class Database():
         finally:
             self.thread_lock.release()
 
-        self.create_table(username)
-
-    def create_table(self, username):
-        cmd = """CREATE TABLE {}(
-            routine_number INTEGER PRIMARY KEY ,
-            routine_name TEXT,
-            departure_time INTEGER,
-            start_location TEXT,
-            end_location TEXT
-            );""".format(username)
-
         try:
             self.thread_lock.acquire(True)
             self.cur.executescript(cmd)
             self.conn.commit()
         finally:
             self.thread_lock.release()
+
+    def get_all_routes(self, username):
+        cmd = """SELECT * FROM Routes WHERE username = \'{}\'""".format(username)
+        data = []
+        try:
+            self.thread_lock.acquire(True)
+            self.cur.execute(cmd)
+            data = self.cur.fetchall()
+        finally:
+            self.thread_lock.release()
+        print(data)
+        return data
+
+    def create_route(self, start, end, time, name, username):
+        cmd = """INSERT INTO Routes(routine_name, departure_time, start_location, end_location, username) 
+                VALUES(?,?,?,?,?)"""
+
+        try:
+            self.thread_lock.acquire(True)
+            self.cur.execute(cmd, (name, time, start, end, username))
+            self.conn.commit()
+        finally:
+            self.thread_lock.release()
+
 
     def route_info(self):
         origin = "1334+Spectrum+Irvine+CA"
