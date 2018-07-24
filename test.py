@@ -1,21 +1,15 @@
-import time
-import sqlite3
-import threading
-conn = sqlite3.connect("everything_db.sqlite", check_same_thread=False)
-cur = conn.cursor()
-thread_lock = threading.Lock()
-info = ''
-try:
-    thread_lock.acquire(True)
-    data = time.localtime()
-    current_time = 2326
-    cur.execute("SELECT time FROM Times WHERE time={}".format(current_time))
-    info = cur.fetchone()
-    cur.execute("SELECT * from Times")
-    data = cur.fetchall()
-    print(data)
-finally:
-    thread_lock.release()
+from fbchat import log, Client
+# Subclass fbchat.Client and override required methods
+class EchoBot(Client):
+    def onMessage(self, author_id, message_object, thread_id, thread_type, **kwargs):
+            self.markAsDelivered(thread_id, message_object.uid)
+            self.markAsRead(thread_id)
+            print(type(thread_id))
+            print(type(thread_type))
+            log.info("{} from {} in {}".format(message_object, thread_id, thread_type. name))
+            # If you're not the author, echo
+            if author_id != self.uid:
+                self.send(message_object, thread_id=thread_id, thread_type=thread_type)
 
-if info != None:
-    print("it got something")
+client = EchoBot("fortnite.killfeed@gmail.com", "fortnite")
+client.listen()

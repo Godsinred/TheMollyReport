@@ -22,6 +22,7 @@ def routine_check(client):
 
         if info != None:
             client.send_route_info(current_time)
+            time.sleep(30)
 
         time.sleep(30)
 

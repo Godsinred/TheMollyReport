@@ -60,7 +60,7 @@ class Database():
 
         try:
             self.thread_lock.acquire(True)
-            self.cur.execute(cmd, (first, last, username, password, thread_id, thread_type))
+            self.cur.execute(cmd, (first, last, username, password, int(thread_id), thread_type))
             self.conn.commit()
         finally:
             self.thread_lock.release()
@@ -120,6 +120,30 @@ class Database():
             self.thread_lock.release()
 
         return (routes, user_info_list)
+
+    def update_route(self, username, route_number, route_update, route_info):
+        cmd = "SELECT routine_number from Routes WHERE username=\'{}\'".format(username)
+        try:
+            self.thread_lock.acquire(True)
+            self.cur.execute(cmd)
+            routes = self.cur.fetchall()
+            route = routes[int(route_number) - 1][0]
+
+            if route_update == 1:
+                cmd = "UPDATE Routes SET routine_name=\'{}\' WHERE routine_number = {}".format(route_info, route)
+            elif route_update == 2:
+                self.cur.execute("INSERT INTO Times(time) VALUES(?)", (int(route_info),))
+                self.conn.commit()
+                cmd = "UPDATE Routes SET departure_time={} WHERE routine_number = {}".format(int(route_info), route)
+            elif route_update == 3:
+                cmd = "UPDATE Routes SET start_location=\'{}\' WHERE routine_number = {}".format(route_info, route)
+            elif route_update == 4:
+                cmd = "UPDATE Routes SET end_location=\'{}\' WHERE routine_number = {}".format(route_info, route)
+
+            self.cur.execute(cmd)
+            self.conn.commit()
+        finally:
+            self.thread_lock.release()
 
     def route_info(self):
         origin = "1334+Spectrum+Irvine+CA"

@@ -121,7 +121,7 @@ class EchoBot(Client):
         self.send(Message(text=msg), thread_id=thread_id, thread_type=thread_type)
 
     def send_route_menu(self, thread_id, thread_type):
-        msg = "--- Routes ---\n1. View Routes\n2. Create Route\n3. Delete Route\nAnything else to quit and logout\n\nChoice:"
+        msg = "--- Routes ---\n1. View Routes\n2. Create Route\n3. Delete Route\n4. Update Route\nAnything else to quit and logout\n\nChoice:"
         self.send(Message(text=msg), thread_id=thread_id, thread_type=thread_type)
 
     def send_goodbye(self, thread_id, thread_type):
@@ -148,6 +148,8 @@ class EchoBot(Client):
 
             elif user_input == 3:
                 self.delete_route(thread_id, thread_type, username)
+            elif user_input == 4:
+                self.update_route(thread_id, thread_type, username)
             else:
                 done = True
                 self.send_goodbye(thread_id, thread_type)
@@ -227,6 +229,24 @@ class EchoBot(Client):
     def delete_route(self, thread_id, thread_type, username):
         self.send(Message(text="Not available yet."), thread_id=thread_id, thread_type=thread_type)
 
+    def update_route(self, thread_id, thread_type, username):
+        self.view_routes(thread_id, thread_type, username)
+        self.send(Message(text="Enter the number for the route you want to update: "), thread_id=thread_id, thread_type=thread_type)
+        route_number = int(self.conversations[thread_id].get())
+
+        msg = "What would you like to update about your route?\n1. Route Name\n2. Departuret time\n3. Start Location\n4. End Location\n\nChoice: "
+        self.send(Message(text=msg), thread_id=thread_id, thread_type=thread_type)
+        route_update = int(self.conversations[thread_id].get())
+
+        msg = "Enter in the new data: "
+        self.send(Message(text=msg), thread_id=thread_id, thread_type=thread_type)
+        route_info = self.conversations[thread_id].get()
+
+        self.database.update_route(username, route_number, route_update, route_info)
+
+        msg = "Your route has been updated."
+        self.send(Message(text=msg), thread_id=thread_id, thread_type=thread_type)
+
     def send_route_info(self, time):
         routes, user_info_list = self.database.get_routes_with_time(time)
         for route in routes:
@@ -247,7 +267,7 @@ class EchoBot(Client):
 
             print()
 
-            route = ''
+            route_msg = ''
             for step in info["routes"][0]["legs"][0]["steps"]:
                 inst = step["html_instructions"]
                 present = True
@@ -259,10 +279,10 @@ class EchoBot(Client):
                         print(inst)
                     else:
                         present = False
-                route += inst + '\n'
+                        route_msg += inst + '\n'
 
-            msg = "Distance: " + info["routes"][0]["legs"][0]["distance"]["text"] + '\n' + "Duration in Traffic: " + \
-                  info["routes"][0]["legs"][0]["duration_in_traffic"]["text"] + '\n' + route
+            # msg = "Distance: " + info["routes"][0]["legs"][0]["distance"]["text"] + '\n' + "Duration in Traffic: " + \
+            #       info["routes"][0]["legs"][0]["duration_in_traffic"]["text"] + '\n' + route
 
             name = ''
             thread_id = 0
@@ -273,6 +293,20 @@ class EchoBot(Client):
                     thread_id = i[2]
                     thread_type = i[3]
                     break
+            print(thread_id)
+            print(thread_type)
+            # msg = "Hi " + name
+            # self.send(Message(text=msg), thread_id=711617527, thread_type=ThreadType.USER)
+            # msg = "\nYour \'" + route[1] + "\' route report for today is:"
+            # self.send(Message(text=msg), thread_id=str(thread_id), thread_type=ThreadType.USER)
+            # msg = "Distance: " + info["routes"][0]["legs"][0]["distance"]["text"] + '\n' + "Duration in Traffic: " + \
+            #       info["routes"][0]["legs"][0]["duration_in_traffic"]["text"]
+            # self.send(Message(text=msg), thread_id=str(thread_id), thread_type=ThreadType.USER)
+            # self.send(Message(text="Directions"), thread_id=str(thread_id), thread_type=ThreadType.USER)
+            # self.send(Message(text=route_msg), thread_id=str(thread_id), thread_type=ThreadType.USER)
 
-            msg = "Hi " + name + "\nYour \'" + route[1] + "\' report for today is:\n" + msg
-            self.send(Message(text=msg), thread_id=thread_id, thread_type=ThreadType.USER)
+            route_msg = "Hi " + name + '\n' + "\nYour \'" + route[1] + "\' route report for today is:\n\n" + \
+                         "Distance: " + info["routes"][0]["legs"][0]["distance"]["text"] + '\n' + \
+                         "Duration in Traffic: " + info["routes"][0]["legs"][0]["duration_in_traffic"]["text"] + \
+                        "\n\nYour route instructinos is: \n" + route_msg + "\n\nOpen in Google Maps? Coming Soon"
+            self.send(Message(text=route_msg), thread_id=str(thread_id), thread_type=ThreadType.USER)
