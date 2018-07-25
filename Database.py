@@ -21,13 +21,13 @@ class Database():
                     last_name TEXT,
                     username TEXT,
                     password TEXT,
-                    thread_id INTEGER,
+                    thread_id TEXT,
                     thread_type TEXT
                     );
                     
                     CREATE TABLE IF NOT EXISTS Routes(
-                    routine_number INTEGER PRIMARY KEY,
-                    routine_name TEXT,
+                    route_number INTEGER PRIMARY KEY,
+                    route_name TEXT,
                     departure_time INTEGER,
                     start_location TEXT,
                     end_location TEXT,
@@ -60,7 +60,7 @@ class Database():
 
         try:
             self.thread_lock.acquire(True)
-            self.cur.execute(cmd, (first, last, username, password, int(thread_id), thread_type))
+            self.cur.execute(cmd, (first, last, username, password, thread_id, thread_type))
             self.conn.commit()
         finally:
             self.thread_lock.release()
@@ -85,7 +85,7 @@ class Database():
         return data
 
     def create_route(self, start, end, time, name, username):
-        cmd = """INSERT INTO Routes(routine_name, departure_time, start_location, end_location, username) 
+        cmd = """INSERT INTO Routes(route_name, departure_time, start_location, end_location, username) 
                 VALUES(?,?,?,?,?)"""
 
         try:
@@ -122,7 +122,7 @@ class Database():
         return (routes, user_info_list)
 
     def update_route(self, username, route_number, route_update, route_info):
-        cmd = "SELECT routine_number from Routes WHERE username=\'{}\'".format(username)
+        cmd = "SELECT route_number from Routes WHERE username=\'{}\'".format(username)
         try:
             self.thread_lock.acquire(True)
             self.cur.execute(cmd)
@@ -130,20 +130,41 @@ class Database():
             route = routes[int(route_number) - 1][0]
 
             if route_update == 1:
-                cmd = "UPDATE Routes SET routine_name=\'{}\' WHERE routine_number = {}".format(route_info, route)
+                cmd = "UPDATE Routes SET route_name=\'{}\' WHERE route_number = {}".format(route_info, route)
             elif route_update == 2:
                 self.cur.execute("INSERT INTO Times(time) VALUES(?)", (int(route_info),))
                 self.conn.commit()
-                cmd = "UPDATE Routes SET departure_time={} WHERE routine_number = {}".format(int(route_info), route)
+                cmd = "UPDATE Routes SET departure_time={} WHERE route_number = {}".format(int(route_info), route)
             elif route_update == 3:
-                cmd = "UPDATE Routes SET start_location=\'{}\' WHERE routine_number = {}".format(route_info, route)
+                cmd = "UPDATE Routes SET start_location=\'{}\' WHERE route_number = {}".format(route_info.replace(' ', '+'), route)
             elif route_update == 4:
-                cmd = "UPDATE Routes SET end_location=\'{}\' WHERE routine_number = {}".format(route_info, route)
+                cmd = "UPDATE Routes SET end_location=\'{}\' WHERE route_number = {}".format(route_info.replace(' ', '+'), route)
 
             self.cur.execute(cmd)
             self.conn.commit()
         finally:
             self.thread_lock.release()
+
+    def delete_route(self, username,  route_number):
+        cmd = "SELECT route_number FROM Routes WHERE username=\'{}\'".format(username)
+        route_name = ''
+        try:
+            self.thread_lock.acquire(True)
+            self.cur.execute(cmd)
+            routes = self.cur.fetchall()
+            route_num = routes[int(route_number) - 1][0]
+
+            cmd = "SELECT route_name FROM Routes WHERE route_number={}".format(route_num)
+            self.cur.execute(cmd)
+            route_name = self.cur.fetchone()[0]
+
+            cmd = "DELETE FROM Routes WHERE route_number={}".format(route_num)
+            self.cur.execute(cmd)
+            self.conn.commit()
+        finally:
+            self.thread_lock.release()
+
+        return route_name
 
     def route_info(self):
         origin = "1334+Spectrum+Irvine+CA"

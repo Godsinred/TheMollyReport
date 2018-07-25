@@ -27,7 +27,7 @@ def routine_check(client):
         time.sleep(30)
 
 def main():
-    client = FacebookMessage.EchoBot("fortnite.killfeed@gmail.com", "fortnite")
+    client = FacebookMessage.EchoBot("TheOfficialMollyReport@gmail.com", "themolly")
     t = threading.Thread(target=routine_check, args=(client,), daemon=True)
     t.start()
     client.listen()
