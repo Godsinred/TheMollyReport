@@ -81,7 +81,6 @@ class EchoBot(Client):
 
                 username = self.check_username(username, thread_id, thread_type)
 
-                # NEED TO FIX STORING THIS SAYS PARAm 5 errors? does that mean 0-5 or 1-5? can't store int?
                 self.database.create_account(first, last, username, password, int(thread_id), str(thread_type))
                 self.send(Message(text="account has been created"), thread_id=thread_id, thread_type=thread_type)
 
@@ -150,6 +149,8 @@ class EchoBot(Client):
                 self.delete_route(thread_id, thread_type, username)
             elif user_input == 4:
                 self.update_route(thread_id, thread_type, username)
+            elif user_input ==5:
+                self.update_account(thread_id, thread_type, username)
             else:
                 done = True
                 self.send_goodbye(thread_id, thread_type)
@@ -253,6 +254,24 @@ class EchoBot(Client):
 
         msg = "Your route has been updated."
         self.send(Message(text=msg), thread_id=thread_id, thread_type=thread_type)
+
+    def update_account(self, thread_id, thread_type, username):
+        msg = "What would you like to update about your account?\n1. First Name\n2. Last Name\n3. Username\n4. Password\nAnything else to quit.\n\nChoice: "
+        self.send(Message(text=msg), thread_id=thread_id, thread_type=thread_type)
+        user_input = int(self.conversations[thread_id].get())
+
+        if user_input == 1:
+            pass
+        elif user_input == 2:
+            pass
+        elif user_input == 3:
+            pass
+        elif user_input == 4:
+            pass
+
+
+
+
 
     def send_route_info(self, time):
         routes, user_info_list = self.database.get_routes_with_time(time)
